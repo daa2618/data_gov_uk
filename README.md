@@ -55,7 +55,7 @@ Here’s how to get started:
 ```python
 from data_gov_uk.api import DataGovUk
 
-client = DataPoliDataGovUkceUK()
+client = DataGovUk()
 
 # Get all available organizations
 orgs = client.ALL_ORGANIZATIONS
