@@ -70,7 +70,7 @@ print(f"The following matching organizations were found: {matched_orgs}")
 # Filter data by organization
 dept_id = "department-for-transport"
 matched_data = client.filter_dataset_for_organization(dept_id)
-print(f"'{len(matched_data)}' datasets are available for '{dept}'")
+print(f"'{len(matched_data)}' datasets are available for '{dept_id}'")
 
 ---
 # Get organization info
