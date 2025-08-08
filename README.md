@@ -1,6 +1,6 @@
 # data_gov_uk
 
-**data_gov_uk** is a Python wrapper to work with [data.gov.uk](https://data.gov.uk) easily and reliably. It simplifies accessing UK police data via their public API, helping you fetch, filter, and analyze open source data from the UK government.
+**data_gov_uk** is a Python wrapper to work with [data.gov.uk](https://data.gov.uk) easily and reliably. It simplifies accessing UK Government data , helping you fetch, filter, and analyze open source data from the UK government.
 
 ---
 
