@@ -62,14 +62,19 @@ orgs = client.ALL_ORGANIZATIONS
 print(f"The following orgaizations are found in data.gov.uk website: {', '.join(orgs)}")
 
 ---
+
+# Search organization
+matched_orgs = client.search_available_organizations("department for transport")
+print(f"The following matching organizations were found: {matched_orgs}")
+
 # Filter data by organization
-dept = "Department of Transport"
-matched_data = client.filter_dataset_for_organization(dept)
+dept_id = "department-for-transport"
+matched_data = client.filter_dataset_for_organization(dept_id)
 print(f"'{len(matched_data)}' datasets are available for '{dept}'")
 
 ---
 # Get organization info
-org_info = client.get_organization_info(dept)
+org_info = client.get_organization_info(dept_id)
 print(org_info)
 
 ```

@@ -1,4 +1,10 @@
 import pandas as pd
+from pathlib import Path
+pardir = Path(__file__).resolve().parent
+import sys
+if str(pardir) not in sys.path:
+    sys.path.insert(0, str(pardir))
+    
 from utils.response import Response 
 from utils.logging_helper import BasicLogger 
 _bl = BasicLogger(verbose = False, log_directory=None,logger_name="DATA_GOV_UK")
