@@ -1,4 +1,5 @@
-import pandas as pd
+from __future__ import annotations
+
 from pathlib import Path
 pardir = Path(__file__).resolve().parent
 import sys
@@ -6,18 +7,17 @@ if str(pardir) not in sys.path:
     sys.path.insert(0, str(pardir))
     
 from utils.response import Response 
-from utils.logging_helper import BasicLogger 
-_bl = BasicLogger(verbose = False, log_directory=None,logger_name="DATA_GOV_UK")
+from utils.log_helper import BasicLogger, logging
 from utils.strings_and_lists import ListOperations 
-from exceptions import OrganizationNotFound, PackageNotFound
+from .exceptions import OrganizationNotFound, PackageNotFound
 
-
+import pandas as pd
 
 class DataGovUk:
     """
     This class provides methods for interacting with the Data.gov.uk API.
     """
-    def __init__(self):
+    def __init__(self, debug:bool=False):
         """
         Initializes the DataGovUk class with the base API URL.
 
@@ -27,6 +27,10 @@ class DataGovUk:
             _all_organizations (list, optional): Cached list of all available organizations. Defaults to None.
         """
         self.url = "https://data.gov.uk/api/3/action"
+        self._bl = BasicLogger(verbose = False, 
+                               log_directory=None,
+                               log_level=logging.DEBUG if debug else logging.WARNING,
+                               logger_name="DATA_GOV_UK")
         self._all_packages = None
         self._all_organizations = None
     
@@ -48,7 +52,7 @@ class DataGovUk:
             else:
                 error = response.get("error")
                 msg = error.get("__type") + " : " + error.get("message")
-                _bl.error(msg)
+                self._bl.error(msg)
                 return None
             
     
@@ -258,7 +262,7 @@ class DataGovUk:
             else:
                 return None
         else:
-            _bl.warning("More than 1000 datasets are found.Returning None")
+            self._bl.warning("More than 1000 datasets are found.Returning None")
             return None
     
     def _get_all_packages_and_datasets_for_organization(self, organization:str, n_results_to_fetch_per_request:int = 100):
@@ -284,7 +288,7 @@ class DataGovUk:
         """
         org_info = self.get_organization_info(organization)
         n_packages = org_info.get("package_count")
-        _bl.info(f"Total Number of Packages(Topics) With the Organization '{organization}' : {n_packages}\n")
+        self._bl.info(f"Total Number of Packages(Topics) With the Organization '{organization}' : {n_packages}\n")
         
         
         n_requests = n_packages // n_results_to_fetch_per_request
@@ -293,15 +297,15 @@ class DataGovUk:
         start = 0
 
         search_url = f"{self.url}/package_search?fq=organization:{organization}"
-        _bl.info("-"*100)
+        self._bl.info("-"*100)
         for a in range(n_requests+1):
             params = dict(start=str(start),
                     rows=str(n_results_to_fetch_per_request))
             
             result = self._get_response(search_url, params=params)
-            _bl.info(f"\tRequest Count: {a}")
-            _bl.info(f"\tPackages(Topics) obtained so far: {len(all_packages_and_datasets)}")
-            #_bl.info(params)
+            self._bl.info(f"\tRequest Count: {a}")
+            self._bl.info(f"\tPackages(Topics) obtained so far: {len(all_packages_and_datasets)}")
+            #self._bl.info(params)
             if result:
                 datasets = result.get("results")
                 res = list(self._fetch_packages_and_datasets(datasets))
@@ -309,10 +313,10 @@ class DataGovUk:
                     all_packages_and_datasets.update(res[0])
                 start += n_results_to_fetch_per_request
         
-        _bl.info("-"*100)
-        _bl.info(f"Total Packages obtained: {len(all_packages_and_datasets)}")
-        _bl.info(f"Total Datasets for Organization: {sum([len(value) for key,value in all_packages_and_datasets.items()])}")
-        _bl.info("-"*100)
+        self._bl.info("-"*100)
+        self._bl.info(f"Total Packages obtained: {len(all_packages_and_datasets)}")
+        self._bl.info(f"Total Datasets for Organization: {sum([len(value) for key,value in all_packages_and_datasets.items()])}")
+        self._bl.info("-"*100)
         yield all_packages_and_datasets
 
     

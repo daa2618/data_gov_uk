@@ -1,0 +1,84 @@
+# [SESSION START] 2026-03-22 - Conversation ID: unit-tests-creation
+
+---
+
+## [2026-03-22 00:00:00 UTC] Session Start / Preflight
+
+### Context
+- User requested unit tests for the project, to be placed in a `tests/` folder
+- Repository: data_gov_uk — a Python client wrapping the CKAN API at data.gov.uk
+
+### Action Taken
+- Checked for `agent_logs/` directory — did not exist
+- Asked user for permission to create it — granted
+- Created `agent_logs/` directory
+- Created today's log file
+
+### Outcome
+- Success — logging infrastructure ready
+
+### Bugs / Errors Encountered
+N/A
+
+### Fix or Mitigation
+N/A
+
+### Pitfalls & Future Risks
+N/A
+
+### Best Practices & Lessons Learned
+N/A
+
+### New Technologies / Tools Used
+N/A
+
+### Follow-ups / TODOs
+- Proceed with writing unit tests
+
+---
+
+## [2026-03-22 00:01:00 UTC] Write Unit Tests for All Project Modules
+
+### Context
+- User requested unit tests for the project to be placed in `tests/` folder
+- Modules to test: api.py, exceptions.py, utils/response.py, utils/strings_and_lists.py, utils/log_helper.py
+
+### Action Taken
+- Created `tests/` directory
+- Created `tests/__init__.py` (empty package marker)
+- Created `tests/conftest.py` with shared fixtures (sample data, pre-cached client)
+- Created `tests/test_exceptions.py` — 4 tests for custom exceptions
+- Created `tests/test_strings_and_lists.py` — 31 tests for StringOperations and ListOperations
+- Created `tests/test_response.py` — 15 tests for Response, GET_RESPONSE, POST_RESPONSE
+- Created `tests/test_log_helper.py` — 7 tests for _checkDirectory, BasicLogger, AppLogger
+- Created `tests/test_api.py` — 32 tests for DataGovUk class
+- Ran `poetry install` to ensure project is installed
+- Ran `poetry run pytest tests/ -v`
+
+### Outcome
+- Success — 95 tests, all passing in 0.11s
+- No HTTP calls made; all external I/O mocked via unittest.mock
+
+### Bugs / Errors Encountered
+N/A
+
+### Fix or Mitigation
+N/A
+
+### Pitfalls & Future Risks
+- api.py uses sys.path manipulation, so the correct patch target is `data_gov_uk.api.Response` (not `data_gov_uk.utils.response.Response`)
+- `_fetch_packages_and_datasets` is a generator — callers must `list()` the result
+- NLTK Snowball stemmer is rule-based and doesn't require data downloads, but this should be verified if environment changes
+
+### Best Practices & Lessons Learned
+- Patching at the import site (where the name is bound) rather than the definition site is critical for sys.path-manipulated imports
+- Using `patch.object(client, "_get_response")` is cleaner than patching Response for higher-level API tests
+
+### New Technologies / Tools Used
+- pytest 9.0.2
+- unittest.mock (patch, MagicMock)
+
+### Follow-ups / TODOs
+N/A
+
+---

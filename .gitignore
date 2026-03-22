@@ -1,6 +1,6 @@
 .venv
 notebooks
-utils
+#utils
 
 
 # Byte-compiled / optimized / DLL files
@@ -210,3 +210,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+#agent_logs
+CLAUDE.md
+AGENT_LOGGING_PROTOCOL.md
