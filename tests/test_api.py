@@ -117,7 +117,10 @@ class TestFilterDataset:
         with patch.object(client, "_get_response", return_value={"count": 5}) as mock:
             result = client.filter_dataset_for_organization("department-for-transport")
         assert result == {"count": 5}
-        assert "organization:department-for-transport" in mock.call_args[0][0]
+        mock.assert_called_with(
+            f"{client.url}/package_search",
+            params={"fq": "organization:department-for-transport"},
+        )
 
     def test_invalid_org_raises(self, client):
         with pytest.raises(OrganizationNotFound):
@@ -131,12 +134,18 @@ class TestGetOrganizationInfo:
     def test_without_datasets(self, client):
         with patch.object(client, "_get_response", return_value={"title": "DfT"}) as mock:
             client.get_organization_info("department-for-transport")
-        assert "include_datasets=False" in mock.call_args[0][0]
+        mock.assert_called_with(
+            f"{client.url}/organization_show",
+            params={"id": "department-for-transport", "include_datasets": "False"},
+        )
 
     def test_with_datasets(self, client):
         with patch.object(client, "_get_response", return_value={"title": "DfT"}) as mock:
             client.get_organization_info("department-for-transport", show_datasets=True)
-        assert "include_datasets=True" in mock.call_args[0][0]
+        mock.assert_called_with(
+            f"{client.url}/organization_show",
+            params={"id": "department-for-transport", "include_datasets": "True"},
+        )
 
     def test_invalid_org_raises(self, client):
         with pytest.raises(OrganizationNotFound):

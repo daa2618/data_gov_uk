@@ -82,3 +82,44 @@ N/A
 N/A
 
 ---
+
+## [2026-03-22 00:02:00 UTC] Phase 1 — Critical Fixes (Security, Correctness, Packaging)
+
+### Context
+- Production-grade improvement plan approved by user
+- Phase 1 addresses: sys.path hack, URL injection, dependency declarations, empty __init__.py, bare excepts, dead imports
+- Files to modify: api.py, strings_and_lists.py, __init__.py (x2), pyproject.toml, test_api.py
+
+### Action Taken
+- Removed sys.path hack (lines 3-7) from api.py, converted `from utils.*` to relative imports (`from .utils.*`)
+- Removed dead `import pandas as pd` from api.py
+- Fixed URL injection in 5 methods: moved user input from f-string URLs to `params` dict
+- Fixed 3 bare except clauses in api.py and strings_and_lists.py
+- Populated both `__init__.py` files with proper exports
+- Updated pyproject.toml: removed pandas, added numpy (temporary until Phase 2)
+- Updated test_api.py: changed URL-string assertions to verify params dict
+
+### Outcome
+- Success — 95 tests passing in 0.08s
+- `from data_gov_uk import DataGovUk` now works
+- No more URL injection vulnerability or bare except clauses
+
+### Bugs / Errors Encountered
+N/A
+
+### Fix or Mitigation
+N/A
+
+### Pitfalls & Future Risks
+- The `include_datasets` param is now passed as string "True"/"False" — CKAN API accepts this but worth verifying
+
+### Best Practices & Lessons Learned
+- Always use `params` dict for query parameters instead of f-string interpolation to prevent injection
+
+### New Technologies / Tools Used
+N/A
+
+### Follow-ups / TODOs
+- Phase 2: Session reuse, retries, input validation, generator→return, replace numpy, simplify logging, lazy stemmer
+
+---

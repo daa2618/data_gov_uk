@@ -54,7 +54,7 @@ class StringOperations:
             raise ConversionError(f"Extraction of numbers from '{string_number}' failed: Result '{number}'")
         try:
             number = ListOperations(number).get_single_result_dict()
-        except:
+        except ValueError:
             number = None
         
         if not number:
@@ -220,7 +220,7 @@ class ListOperations:
         else:
             try:
                 search_metric=float(search_metric)
-            except:
+            except (TypeError, ValueError):
                 pass
 
             if isinstance(search_metric, float):

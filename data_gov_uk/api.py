@@ -1,17 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-pardir = Path(__file__).resolve().parent
-import sys
-if str(pardir) not in sys.path:
-    sys.path.insert(0, str(pardir))
-    
-from utils.response import Response 
-from utils.log_helper import BasicLogger, logging
-from utils.strings_and_lists import ListOperations 
+from .utils.response import Response
+from .utils.log_helper import BasicLogger, logging
+from .utils.strings_and_lists import ListOperations
 from .exceptions import OrganizationNotFound, PackageNotFound
-
-import pandas as pd
 
 class DataGovUk:
     """
@@ -112,9 +104,11 @@ class DataGovUk:
                     exception type may vary depending on the underlying error.
         """
         self._assert_organization_exists(organization)
-        search_url = f"{self.url}/package_search?fq=organization:{organization}"
-        return self._get_response(search_url)
-    
+        return self._get_response(
+            f"{self.url}/package_search",
+            params={"fq": f"organization:{organization}"},
+        )
+
     def get_organization_info(self, organization:str, show_datasets:bool=False) -> dict:
         """Retrieves information about a specific organization.
 
@@ -133,8 +127,10 @@ class DataGovUk:
 
         """
         self._assert_organization_exists(organization)
-        search_url = f"{self.url}/organization_show?id={organization}&include_datasets={show_datasets}"
-        return self._get_response(search_url)
+        return self._get_response(
+            f"{self.url}/organization_show",
+            params={"id": organization, "include_datasets": str(show_datasets)},
+        )
     
     def _search_list_by_string(self, search_list:list, search_string:str):
         list_ops = ListOperations(search_list, search_string = search_string)
@@ -228,7 +224,7 @@ class DataGovUk:
             try:
                 files_list.sort(key=lambda x: x.get("created_at"),
                                 reverse=True)
-            except:
+            except (TypeError, ValueError):
                 pass
             sorted_out[key]=files_list
         yield sorted_out
@@ -251,11 +247,10 @@ class DataGovUk:
 
         """
         data = self.filter_dataset_for_organization(organization)
-        search_url = f"{self.url}/package_search?fq=organization:{organization}"
         n_datasets = data.get("count")
         if n_datasets > 0 and n_datasets <=1000:
-            params = dict(rows=str(n_datasets))
-            results = self._get_response(search_url, params=params)
+            params = {"fq": f"organization:{organization}", "rows": str(n_datasets)}
+            results = self._get_response(f"{self.url}/package_search", params=params)
             if results:
                 all_results = results.get("results")
                 return self._fetch_packages_and_datasets(all_results)
@@ -296,12 +291,15 @@ class DataGovUk:
 
         start = 0
 
-        search_url = f"{self.url}/package_search?fq=organization:{organization}"
+        search_url = f"{self.url}/package_search"
         self._bl.info("-"*100)
         for a in range(n_requests+1):
-            params = dict(start=str(start),
-                    rows=str(n_results_to_fetch_per_request))
-            
+            params = {
+                "fq": f"organization:{organization}",
+                "start": str(start),
+                "rows": str(n_results_to_fetch_per_request),
+            }
+
             result = self._get_response(search_url, params=params)
             self._bl.info(f"\tRequest Count: {a}")
             self._bl.info(f"\tPackages(Topics) obtained so far: {len(all_packages_and_datasets)}")
@@ -336,8 +334,10 @@ class DataGovUk:
                     exception type depends on the implementation of `_assert_package_exists`.
         """
         self._assert_package_exists(package_id)
-        search_url = f"{self.url}/package_show?id={package_id}"
-        return self._get_response(search_url)
+        return self._get_response(
+            f"{self.url}/package_show",
+            params={"id": package_id},
+        )
     
     def get_resources_for_package_id(self, package_id:str):
         """Retrieves resources associated with a given package ID.
