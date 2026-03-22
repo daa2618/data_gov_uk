@@ -123,3 +123,53 @@ N/A
 - Phase 2: Session reuse, retries, input validation, generator→return, replace numpy, simplify logging, lazy stemmer
 
 ---
+
+## [2026-03-22 00:03:00 UTC] Phase 2 — Architecture Improvements
+
+### Context
+- Phase 2 of production-grade improvements
+- 7 changes: session reuse, retries, input validation, generator→return, replace numpy, simplify logging, lazy stemmer
+
+### Action Taken
+- **2.1 Session reuse**: Created `requests.Session` in `DataGovUk.__init__`, passed to every `Response()` call. Added `close()`, `__enter__`, `__exit__` for context manager support.
+- **2.2 Retries**: Mounted `HTTPAdapter` with `urllib3.util.retry.Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])` on the session. No new dependencies.
+- **2.3 Input validation**: Added `_validate_string()` static method. Called in all public methods that accept organization/package_id. Rejects None, non-string, empty, whitespace-only input.
+- **2.4 Generator→return**: Converted `_fetch_packages_and_datasets` and `_get_all_packages_and_datasets_for_organization` from `yield` to `return`. Simplified all callers (removed `list()[0]` pattern).
+- **2.5 Replace numpy**: Replaced `numpy.mean`/`median`/`quantile` with `statistics.mean`/`median` and sorted-index percentile. Removed numpy from pyproject.toml.
+- **2.6 Simplify logging**: Replaced 388-line `log_helper.py` with 57-line module: `get_logger()` function + `BasicLogger` compatibility shim. Replaced module-level `BasicLogger` instances in `response.py` and `strings_and_lists.py` with stdlib `logging.getLogger(__name__)`.
+- **2.7 Lazy stemmer**: Replaced module-level `stemmer = SnowballStemmer("english")` with `_get_stemmer()` lazy function. Also makes `nltk` import lazy.
+- Updated all test files: conftest.py, test_api.py, test_log_helper.py, test_response.py
+- Added 5 new tests: TestInit.test_context_manager, TestInputValidation (5 tests)
+
+### Outcome
+- Success — 100 tests passing in 0.30s (up from 95)
+- Package imports cleanly: `from data_gov_uk import DataGovUk` works
+- numpy dependency eliminated
+- log_helper.py reduced from 388 lines to 57 lines
+- All HTTP requests now share a single session with automatic retries
+
+### Bugs / Errors Encountered
+N/A
+
+### Fix or Mitigation
+N/A
+
+### Pitfalls & Future Risks
+- Retry strategy uses `backoff_factor=1` (delays: 0s, 1s, 2s). May need tuning for data.gov.uk's specific rate limits.
+- `_validate_string` strips whitespace — if a user intentionally needs a string with leading/trailing spaces, this would alter it.
+
+### Best Practices & Lessons Learned
+- Session reuse gives connection pooling for free with requests library
+- urllib3 retry mounted on HTTPAdapter is the standard pattern for requests retries — no extra dependencies needed
+- Lazy imports (nltk stemmer) speed up package import time significantly
+
+### New Technologies / Tools Used
+- `urllib3.util.retry.Retry` for automatic retry with backoff
+- `requests.adapters.HTTPAdapter` for mounting retry strategy
+- `statistics` stdlib module replacing numpy for mean/median
+
+### Follow-ups / TODOs
+- Phase 3: Response models (dataclasses), caching, CLI tool, export utilities
+- Phase 4: Type hints, ruff config, pre-commit hooks, GitHub Actions CI
+
+---

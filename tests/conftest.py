@@ -52,7 +52,7 @@ def sample_package_show_result():
 @pytest.fixture
 def client(sample_organizations, sample_packages):
     """DataGovUk client with pre-cached org and package lists (no HTTP)."""
-    with patch("data_gov_uk.api.Response"):
+    with patch("data_gov_uk.api.requests.Session"):
         c = DataGovUk()
     c._all_organizations = sample_organizations
     c._all_packages = sample_packages

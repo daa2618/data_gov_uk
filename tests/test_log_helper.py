@@ -1,103 +1,64 @@
 from __future__ import annotations
 
 import logging
-import os
 import pytest
-from unittest.mock import patch
 
-from data_gov_uk.utils.log_helper import (
-    BasicLogger,
-    AppLogger,
-    DirectoryCreationError,
-    _checkDirectory,
-)
+from data_gov_uk.utils.log_helper import get_logger, BasicLogger
 
 
-class TestCheckDirectory:
-    def test_creates_missing_dir(self, tmp_path):
-        target = str(tmp_path / "new_dir")
-        result = _checkDirectory(target)
-        assert os.path.isdir(result)
+class TestGetLogger:
+    def test_returns_logger(self):
+        logger = get_logger("test_returns")
+        assert isinstance(logger, logging.Logger)
 
-    def test_existing_dir_returns_path(self, tmp_path):
-        result = _checkDirectory(str(tmp_path))
-        assert result == str(tmp_path)
+    def test_sets_level(self):
+        logger = get_logger("test_level", level=logging.DEBUG)
+        assert logger.level == logging.DEBUG
 
-    def test_raises_on_failure(self):
-        with patch("data_gov_uk.utils.log_helper.os.makedirs", side_effect=OSError("fail")):
-            with pytest.raises(DirectoryCreationError):
-                _checkDirectory("/impossible/path/that/will/fail")
+    def test_adds_handler(self):
+        logger = get_logger("test_handler")
+        stream_handlers = [
+            h for h in logger.handlers if isinstance(h, logging.StreamHandler)
+        ]
+        assert len(stream_handlers) >= 1
+
+    def test_no_duplicate_handlers(self):
+        name = "test_no_dup"
+        logger1 = get_logger(name)
+        count1 = len(logger1.handlers)
+        logger2 = get_logger(name)
+        assert len(logger2.handlers) == count1
 
 
 class TestBasicLogger:
     def test_creates_logger_instance(self):
-        bl = BasicLogger(logger_name="test_basic", log_directory=None, verbose=False)
+        bl = BasicLogger(logger_name="test_basic")
         assert isinstance(bl.logger, logging.Logger)
 
     def test_level_is_set(self):
-        bl = BasicLogger(
-            logger_name="test_level",
-            log_level=logging.DEBUG,
-            log_directory=None,
-            verbose=False,
-        )
+        bl = BasicLogger(logger_name="test_bl_level", log_level=logging.DEBUG)
         assert bl.logger.level == logging.DEBUG
 
-    def test_no_directory_skips_file_handler(self):
-        bl = BasicLogger(
-            logger_name="test_no_dir",
-            log_directory=None,
-            verbose=False,
-            log_to_console=False,
-        )
-        file_handlers = [
-            h for h in bl.logger.handlers if isinstance(h, logging.FileHandler)
-        ]
-        assert len(file_handlers) == 0
-
-
-class TestAppLogger:
-    def test_console_handler_added(self):
-        al = AppLogger(
-            logger_name="test_console",
-            log_directory=None,
-            log_to_console=True,
-            verbose=False,
-        )
-        stream_handlers = [
-            h for h in al.logger.handlers if isinstance(h, logging.StreamHandler)
-        ]
-        assert len(stream_handlers) >= 1
-
-    def test_no_console_handler(self):
-        al = AppLogger(
-            logger_name="test_no_console",
-            log_directory=None,
-            log_to_console=False,
-            verbose=False,
-        )
-        assert len(al.logger.handlers) == 0
+    def test_delegates_methods(self):
+        bl = BasicLogger(logger_name="test_delegate", log_level=logging.DEBUG)
+        # Should not raise
+        bl.debug("debug msg")
+        bl.info("info msg")
+        bl.warning("warning msg")
+        bl.error("error msg")
+        bl.critical("critical msg")
 
     def test_close_removes_handlers(self):
-        al = AppLogger(
-            logger_name="test_close",
-            log_directory=None,
-            log_to_console=True,
-            verbose=False,
-        )
-        assert len(al.logger.handlers) > 0
-        al.close()
-        assert len(al.logger.handlers) == 0
+        bl = BasicLogger(logger_name="test_close_bl")
+        assert len(bl.logger.handlers) > 0
+        bl.close()
+        assert len(bl.logger.handlers) == 0
 
-    def test_file_handler_with_tmp_dir(self, tmp_path):
-        al = AppLogger(
-            logger_name="test_file",
-            log_directory=str(tmp_path),
-            log_to_console=False,
+    def test_accepts_legacy_kwargs(self):
+        """Ensure old-style kwargs (verbose, log_directory) don't raise."""
+        bl = BasicLogger(
+            logger_name="test_legacy",
             verbose=False,
+            log_directory=None,
         )
-        file_handlers = [
-            h for h in al.logger.handlers if isinstance(h, logging.FileHandler)
-        ]
-        assert len(file_handlers) == 1
-        al.close()
+        assert isinstance(bl.logger, logging.Logger)

@@ -12,57 +12,86 @@ from data_gov_uk.exceptions import OrganizationNotFound, PackageNotFound
 
 class TestInit:
     def test_defaults(self):
-        with patch("data_gov_uk.api.Response"):
+        with patch("data_gov_uk.api.requests.Session"):
             c = DataGovUk()
         assert c.url == "https://data.gov.uk/api/3/action"
         assert c._all_packages is None
         assert c._all_organizations is None
+
+    def test_context_manager(self):
+        with patch("data_gov_uk.api.requests.Session") as MockSession:
+            with DataGovUk() as c:
+                assert c.url == "https://data.gov.uk/api/3/action"
+            MockSession.return_value.close.assert_called_once()
 
 
 # ── _get_response ───────────────────────────────────────────────────
 
 
 class TestGetResponse:
-    def test_success(self):
+    def test_success(self, client):
         with patch("data_gov_uk.api.Response") as MockResp:
             mock_inst = MockResp.return_value
             mock_inst.get_json_from_response.return_value = {
                 "success": True,
                 "result": {"data": 1},
             }
-            c = DataGovUk()
-            result = c._get_response("https://example.com")
+            result = client._get_response("https://example.com")
         assert result == {"data": 1}
 
-    def test_failure_returns_none(self):
+    def test_failure_returns_none(self, client):
         with patch("data_gov_uk.api.Response") as MockResp:
             mock_inst = MockResp.return_value
             mock_inst.get_json_from_response.return_value = {
                 "success": False,
                 "error": {"__type": "Not Found", "message": "not found"},
             }
-            c = DataGovUk()
-            result = c._get_response("https://example.com")
+            result = client._get_response("https://example.com")
         assert result is None
 
-    def test_none_response_returns_none(self):
+    def test_none_response_returns_none(self, client):
         with patch("data_gov_uk.api.Response") as MockResp:
             mock_inst = MockResp.return_value
             mock_inst.get_json_from_response.return_value = None
-            c = DataGovUk()
-            result = c._get_response("https://example.com")
+            result = client._get_response("https://example.com")
         assert result is None
 
-    def test_passes_kwargs(self):
+    def test_passes_session_and_kwargs(self, client):
         with patch("data_gov_uk.api.Response") as MockResp:
             mock_inst = MockResp.return_value
             mock_inst.get_json_from_response.return_value = {
                 "success": True,
                 "result": [],
             }
-            c = DataGovUk()
-            c._get_response("https://example.com", params={"rows": "10"})
-        MockResp.assert_called_with("https://example.com", params={"rows": "10"})
+            client._get_response("https://example.com", params={"rows": "10"})
+        MockResp.assert_called_with(
+            "https://example.com", session=client._session, params={"rows": "10"}
+        )
+
+
+# ── Input validation ────────────────────────────────────────────────
+
+
+class TestInputValidation:
+    def test_rejects_none(self, client):
+        with pytest.raises(TypeError, match="must be a string"):
+            client.filter_dataset_for_organization(None)
+
+    def test_rejects_integer(self, client):
+        with pytest.raises(TypeError, match="must be a string"):
+            client.get_info_for_package_id(123)
+
+    def test_rejects_empty_string(self, client):
+        with pytest.raises(ValueError, match="must not be empty"):
+            client.search_available_organizations("")
+
+    def test_rejects_whitespace_only(self, client):
+        with pytest.raises(ValueError, match="must not be empty"):
+            client.search_available_packages("   ")
+
+    def test_strips_whitespace(self, client):
+        result = client.search_available_organizations("  transport  ")
+        assert any("transport" in o for o in result)
 
 
 # ── Lazy-cached properties ──────────────────────────────────────────
@@ -177,21 +206,19 @@ class TestSearch:
 
 
 class TestFetchPackagesAndDatasets:
-    def test_yields_dict_with_correct_keys(self, client, sample_package_show_result):
-        result = list(client._fetch_packages_and_datasets([sample_package_show_result]))
-        assert len(result) == 1
-        data = result[0]
+    def test_returns_dict_with_correct_keys(self, client, sample_package_show_result):
+        data = client._fetch_packages_and_datasets([sample_package_show_result])
         assert "traffic-speed-data" in data
         assert len(data["traffic-speed-data"]) == 2
 
     def test_sorts_by_created_at_descending(self, client, sample_package_show_result):
-        result = list(client._fetch_packages_and_datasets([sample_package_show_result]))
-        resources = result[0]["traffic-speed-data"]
+        data = client._fetch_packages_and_datasets([sample_package_show_result])
+        resources = data["traffic-speed-data"]
         assert resources[0]["created_at"] >= resources[1]["created_at"]
 
     def test_resource_fields_extracted(self, client, sample_package_show_result):
-        result = list(client._fetch_packages_and_datasets([sample_package_show_result]))
-        resource = result[0]["traffic-speed-data"][0]
+        data = client._fetch_packages_and_datasets([sample_package_show_result])
+        resource = data["traffic-speed-data"][0]
         expected_keys = {
             "description", "file_format", "file_id", "mime_type",
             "name", "package_id", "resource_type", "created_at", "file_url",
@@ -239,8 +266,8 @@ class TestGetPackagesUnder1000:
         ]
         with patch.object(client, "_get_response", side_effect=responses):
             result = client._get_packages_from_organization_for_under_1000("department-for-transport")
-        data = list(result)
-        assert len(data) == 1
+        assert isinstance(result, dict)
+        assert "traffic-speed-data" in result
 
     def test_over_1000_returns_none(self, client):
         with patch.object(client, "_get_response", return_value={"count": 1500}):
@@ -261,11 +288,9 @@ class TestGetAllPackagesForOrg:
         org_info = {"package_count": 3}
         page_result = {"results": [sample_package_show_result]}
 
-        with patch.object(client, "_get_response", side_effect=[org_info, page_result]) as mock:
-            result = list(
-                client._get_all_packages_and_datasets_for_organization(
-                    "department-for-transport", n_results_to_fetch_per_request=100
-                )
+        with patch.object(client, "_get_response", side_effect=[org_info, page_result]):
+            result = client._get_all_packages_and_datasets_for_organization(
+                "department-for-transport", n_results_to_fetch_per_request=100
             )
-        assert len(result) == 1
-        assert "traffic-speed-data" in result[0]
+        assert isinstance(result, dict)
+        assert "traffic-speed-data" in result

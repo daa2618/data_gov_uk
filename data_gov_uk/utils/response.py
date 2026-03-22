@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from .log_helper import BasicLogger
+import logging
+import time
+from typing import Optional, Dict, Any
+from urllib.parse import urlsplit
 
 import requests
-from urllib.parse import urlsplit, urlunsplit
-import time
-from pathlib import Path
-from typing import Optional, Dict, Any
 
-
-_bl = BasicLogger(verbose=False, log_directory=None, logger_name="RESPONSE")
+_logger = logging.getLogger(__name__)
 
 
 class MethodError(Exception):
@@ -95,7 +93,7 @@ class Response:
                     try:
                         _ = self.response
                     except Exception as e:
-                        _bl.exception(f"\tTransient error: {e}. Sleeping {poll_interval}s…")
+                        _logger.exception(f"\tTransient error: {e}. Sleeping {poll_interval}s…")
                         time.sleep(poll_interval)
                         self._response = None
                         continue
@@ -109,7 +107,7 @@ class Response:
                 body_preview = self._response.text[:1000]
             except Exception:
                 pass
-            _bl.error(f"[HTTP {self._response.status_code}] {self.url}\nHeaders: {self._response.headers}\nBody: {body_preview}")
+            _logger.error(f"[HTTP {self._response.status_code}] {self.url}\nHeaders: {self._response.headers}\nBody: {body_preview}")
             self._response.raise_for_status()
 
         return self._response
@@ -120,7 +118,7 @@ class Response:
             # Use requests’ JSON decoder (handles bytes/encoding)
             return resp.json()
         except Exception as e:
-            _bl.exception(f"ERROR: Failed to get JSON from response: {e}")
+            _logger.exception(f"ERROR: Failed to get JSON from response: {e}")
             return None
 
     def get_base_url(self) -> str:

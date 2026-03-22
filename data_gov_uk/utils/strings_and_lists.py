@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-from .log_helper import BasicLogger
-
-from difflib import SequenceMatcher
-from nltk.stem.snowball import SnowballStemmer
 import itertools
-import numpy as np
+import logging
 import re
-from pathlib import Path
+from difflib import SequenceMatcher
+from statistics import mean, median
+
+_logger = logging.getLogger(__name__)
+
+_stemmer = None
 
 
-_bl = BasicLogger(verbose=False, log_directory=None, logger_name="STRINGS AND LISTS")
-
-stemmer = SnowballStemmer("english")
+def _get_stemmer():
+    """Lazy-load the NLTK Snowball stemmer on first use."""
+    global _stemmer
+    if _stemmer is None:
+        from nltk.stem.snowball import SnowballStemmer
+        _stemmer = SnowballStemmer("english")
+    return _stemmer
 
 class ConversionError(Exception):
     pass
@@ -131,7 +136,7 @@ class ListOperations:
     
     @search_string.setter
     def search_string(self, value):
-        _bl.info("search_string was set")
+        _logger.info("search_string was set")
         self._search_string = value
     
 
@@ -176,7 +181,7 @@ class ListOperations:
             A list containing the strings from `search_list` that contain the stemmed `search_string`, or None if no matches are found.
         """
         filtered=[x for x in self.search_list \
-                  if x and stemmer.stem(self.search_string) in stemmer.stem(x)]
+                  if x and _get_stemmer().stem(self.search_string) in _get_stemmer().stem(x)]
         if filtered:
             return filtered
         else:
@@ -208,15 +213,20 @@ class ListOperations:
         
         if search_metric in str_metrics:
             if search_metric == "mean":
-                score_indexes=[True if x >= np.mean(matching_scores) else False for x in matching_scores]
+                threshold = mean(matching_scores)
+                score_indexes=[x >= threshold for x in matching_scores]
             elif search_metric == "median":
-                score_indexes=[True if x >= np.median(matching_scores) else False for x in matching_scores]
+                threshold = median(matching_scores)
+                score_indexes=[x >= threshold for x in matching_scores]
             elif search_metric == "mode":
                 mode = max(set(matching_scores), key=matching_scores.count)
-                score_indexes=[True if x >=mode else False for x in matching_scores]
+                score_indexes=[x >= mode for x in matching_scores]
             elif search_metric in ["0.25", "0.75", "0.5"]:
-                q=float(search_metric)
-                score_indexes=[True if x >= np.quantile(matching_scores, q) else False for x in matching_scores]
+                q = float(search_metric)
+                sorted_scores = sorted(matching_scores)
+                idx = int(q * (len(sorted_scores) - 1))
+                threshold = sorted_scores[idx]
+                score_indexes=[x >= threshold for x in matching_scores]
         else:
             try:
                 search_metric=float(search_metric)
@@ -233,7 +243,7 @@ class ListOperations:
         if filtered:
             return filtered
         else:
-            _bl.warning("No matching results was found for given search metric\nConsider reducing the value")
+            _logger.warning("No matching results was found for given search metric\nConsider reducing the value")
             return None
     
 
