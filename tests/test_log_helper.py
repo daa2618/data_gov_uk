@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import logging
-import pytest
 
-from data_gov_uk.utils.log_helper import get_logger, BasicLogger
+from data_gov_uk.utils.log_helper import BasicLogger, get_logger
 
 
 class TestGetLogger:
@@ -17,9 +16,7 @@ class TestGetLogger:
 
     def test_adds_handler(self):
         logger = get_logger("test_handler")
-        stream_handlers = [
-            h for h in logger.handlers if isinstance(h, logging.StreamHandler)
-        ]
+        stream_handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler)]
         assert len(stream_handlers) >= 1
 
     def test_no_duplicate_handlers(self):

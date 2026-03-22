@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Any
 from urllib.parse import urlsplit
 
 import requests
@@ -13,6 +14,7 @@ _logger = logging.getLogger(__name__)
 class MethodError(Exception):
     pass
 
+
 class Response:
     _METHODS = {"GET", "POST", "DELETE"}
 
@@ -21,15 +23,15 @@ class Response:
         url: str,
         method: str = "GET",
         *,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
         timeout: float = 30.0,
         verify: bool = True,
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        json: Optional[Any] = None,
-        data: Optional[Any] = None,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        json: Any | None = None,
+        data: Any | None = None,
         allow_redirects: bool = True,
-        trust_env: Optional[bool] = None,   # override per-request if needed
+        trust_env: bool | None = None,  # override per-request if needed
         stream: bool = False,
     ):
         self.url = url
@@ -62,7 +64,7 @@ class Response:
         self.params = params
         self.json = json
         self.data = data
-        self._response: Optional[requests.Response] = None
+        self._response: requests.Response | None = None
 
     @property
     def response(self) -> requests.Response:
@@ -103,16 +105,17 @@ class Response:
         # At this point we have a response; if not 200, show diagnostics before raising.
         if self._response.status_code != 200:
             body_preview = ""
-            try:
+            with contextlib.suppress(Exception):
                 body_preview = self._response.text[:1000]
-            except Exception:
-                pass
-            _logger.error(f"[HTTP {self._response.status_code}] {self.url}\nHeaders: {self._response.headers}\nBody: {body_preview}")
+            _logger.error(
+                f"[HTTP {self._response.status_code}] {self.url}\n"
+                f"Headers: {self._response.headers}\nBody: {body_preview}"
+            )
             self._response.raise_for_status()
 
         return self._response
 
-    def get_json_from_response(self, await_response: bool = False) -> Optional[Any]:
+    def get_json_from_response(self, await_response: bool = False) -> Any | None:
         try:
             resp = self.assert_response(await_response=await_response)
             # Use requests’ JSON decoder (handles bytes/encoding)
@@ -122,15 +125,23 @@ class Response:
             return None
 
     def get_base_url(self) -> str:
-        splitUrl = urlsplit(self.url)
-        return "://".join([splitUrl.scheme, splitUrl.netloc])
+        split_url = urlsplit(self.url)
+        return "://".join([split_url.scheme, split_url.netloc])
 
-    
 
-class GET_RESPONSE(Response):
-    def __init__(self, url:str, **kwargs):
+class GetResponse(Response):
+    def __init__(self, url: str, **kwargs):
         super().__init__(method="GET", url=url, **kwargs)
 
-class POST_RESPONSE(Response):
-    def __init__(self, url:str, **kwargs):
+
+# Backward-compatible aliases
+GET_RESPONSE = GetResponse
+
+
+class PostResponse(Response):
+    def __init__(self, url: str, **kwargs):
         super().__init__(method="POST", url=url, **kwargs)
+
+
+# Backward-compatible alias
+POST_RESPONSE = PostResponse

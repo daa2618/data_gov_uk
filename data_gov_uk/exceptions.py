@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+
 class OrganizationNotFound(Exception):
-    pass
+    """Raised when an organization cannot be found on data.gov.uk."""
+
 
 class PackageNotFound(Exception):
-    pass
+    """Raised when a package/dataset cannot be found on data.gov.uk."""

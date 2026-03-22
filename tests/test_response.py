@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
-from data_gov_uk.utils.response import Response, GET_RESPONSE, POST_RESPONSE, MethodError
-
+from data_gov_uk.utils.response import GET_RESPONSE, POST_RESPONSE, MethodError, Response
 
 # ── Initialization ──────────────────────────────────────────────────
 

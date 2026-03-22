@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .exceptions import OrganizationNotFound, PackageNotFound
 from .utils.response import Response
 from .utils.strings_and_lists import ListOperations
-from .exceptions import OrganizationNotFound, PackageNotFound
 
 _logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class DataGovUk:
     """
     This class provides methods for interacting with the Data.gov.uk API.
     """
+
     def __init__(self, debug: bool = False):
         """
         Initializes the DataGovUk class with the base API URL.
@@ -62,7 +64,7 @@ class DataGovUk:
             raise ValueError(f"{name} must not be empty")
         return value
 
-    def _get_response(self, url, **kwargs):
+    def _get_response(self, url: str, **kwargs) -> dict | None:
         """
         Fetches data from a provided URL and handles error responses.
 
@@ -84,42 +86,43 @@ class DataGovUk:
                 return None
 
     @property
-    def ALL_PACKAGES(self) -> list:
-        """
-        Retrieves the list of all available datasets on Data.gov.uk.
+    def all_packages(self) -> list:
+        """Retrieves the list of all available datasets on Data.gov.uk.
 
         Returns:
             list: A list containing information about all datasets.
         """
-
         if self._all_packages is None:
             dataset_url = f"{self.url}/package_list"
             self._all_packages = self._get_response(dataset_url)
         return self._all_packages
 
+    # Backward-compatible aliases
+    ALL_PACKAGES = all_packages
+
     @property
-    def ALL_ORGANIZATIONS(self) -> list:
+    def all_organizations(self) -> list:
         """Retrieves a list of all organizations.
 
-        This method retrieves a list of all organizations from the API.  The result is cached
-        for subsequent calls to avoid redundant API requests.
+        The result is cached for subsequent calls to avoid redundant API requests.
 
         Returns:
-            list: A list of organizations. Returns the cached result if it exists, otherwise fetches
-                it from the API using the URL constructed from `self.url`.  Returns an empty list if the API call fails (or other errors occur).
-
+            list: A list of organizations.
         """
         if self._all_organizations is None:
-            orgUrl = f"{self.url}/organization_list"
-            self._all_organizations = self._get_response(orgUrl)
+            org_url = f"{self.url}/organization_list"
+            self._all_organizations = self._get_response(org_url)
         return self._all_organizations
 
+    # Backward-compatible alias
+    ALL_ORGANIZATIONS = all_organizations
+
     def _assert_organization_exists(self, organization: str):
-        if organization not in self.ALL_ORGANIZATIONS:
+        if organization not in self.all_organizations:
             raise OrganizationNotFound(f"No organization named '{organization}' was found")
 
     def _assert_package_exists(self, package_id: str):
-        if package_id not in self.ALL_PACKAGES:
+        if package_id not in self.all_packages:
             raise PackageNotFound(f"No package with ID '{package_id}' was found")
 
     def filter_dataset_for_organization(self, organization: str) -> dict:
@@ -165,7 +168,7 @@ class DataGovUk:
             params={"id": organization, "include_datasets": str(show_datasets)},
         )
 
-    def _search_list_by_string(self, search_list: list, search_string: str):
+    def _search_list_by_string(self, search_list: list[str], search_string: str) -> list[str] | None:
         list_ops = ListOperations(search_list, search_string=search_string)
 
         filtered = list_ops.search_list_by_snowball()
@@ -191,7 +194,7 @@ class DataGovUk:
             OrganizationNotFound: If no organizations match the search string.
         """
         organization = self._validate_string(organization, "organization")
-        filtered = self._search_list_by_string(self.ALL_ORGANIZATIONS, organization)
+        filtered = self._search_list_by_string(self.all_organizations, organization)
         if filtered:
             return filtered
         else:
@@ -210,13 +213,13 @@ class DataGovUk:
             PackageNotFound: If no packages matching the provided name are found in the database.
         """
         package_name = self._validate_string(package_name, "package_name")
-        filtered = self._search_list_by_string(self.ALL_PACKAGES, package_name)
+        filtered = self._search_list_by_string(self.all_packages, package_name)
         if filtered:
             return filtered
         else:
             raise PackageNotFound("No matching packages could be found")
 
-    def _fetch_packages_and_datasets(self, all_results: list) -> dict:
+    def _fetch_packages_and_datasets(self, all_results: list[dict]) -> dict[str, list[dict]]:
         """Fetches and organizes packages and datasets from a list of results.
 
         Args:
@@ -229,26 +232,27 @@ class DataGovUk:
                 dictionaries containing dataset metadata, sorted by creation date
                 (most recent first).
         """
-        data_dict = {result.get("name"): [
-                            dict(
-                                description=x.get("description"),
-                                file_format=x.get("format"),
-                                file_id=x.get("id"),
-                                mime_type=x.get("mimetype"),
-                                name=x.get("name"),
-                                package_id=x.get("package_id"),
-                                resource_type=x.get("resource_type"),
-                                created_at=x.get("created"),
-                                file_url=x.get("url")
-                                ) for x in result.get("resources")
-                        ] for result in all_results}
+        data_dict = {
+            result.get("name"): [
+                dict(
+                    description=x.get("description"),
+                    file_format=x.get("format"),
+                    file_id=x.get("id"),
+                    mime_type=x.get("mimetype"),
+                    name=x.get("name"),
+                    package_id=x.get("package_id"),
+                    resource_type=x.get("resource_type"),
+                    created_at=x.get("created"),
+                    file_url=x.get("url"),
+                )
+                for x in result.get("resources")
+            ]
+            for result in all_results
+        }
         sorted_out = {}
         for key, files_list in data_dict.items():
-            try:
-                files_list.sort(key=lambda x: x.get("created_at"),
-                                reverse=True)
-            except (TypeError, ValueError):
-                pass
+            with contextlib.suppress(TypeError, ValueError):
+                files_list.sort(key=lambda x: x.get("created_at"), reverse=True)
             sorted_out[key] = files_list
         return sorted_out
 
@@ -276,15 +280,17 @@ class DataGovUk:
             _logger.warning("More than 1000 datasets found. Returning None.")
             return None
 
-    def _get_all_packages_and_datasets_for_organization(self, organization: str, n_results_to_fetch_per_request: int = 100) -> dict:
+    def _get_all_packages_and_datasets_for_organization(
+        self, organization: str, n_results_to_fetch_per_request: int = 100
+    ) -> dict:
         """Retrieves all packages and datasets for a given organization.
 
-        This function iteratively fetches package information from a remote API,
+        Iteratively fetches package information from a remote API,
         handling pagination to retrieve all packages associated with a specified organization.
 
         Args:
-            organization (str): The name of the organization.
-            n_results_to_fetch_per_request (int, optional): The number of results to fetch per API request. Defaults to 100.
+            organization: The name of the organization.
+            n_results_to_fetch_per_request: Results per API request. Defaults to 100.
 
         Returns:
             dict: A dictionary where keys are package names and values are lists of associated datasets.
@@ -317,10 +323,11 @@ class DataGovUk:
                 start += n_results_to_fetch_per_request
 
         _logger.info(f"Total Packages obtained: {len(all_packages_and_datasets)}")
-        _logger.info(f"Total Datasets for Organization: {sum(len(value) for value in all_packages_and_datasets.values())}")
+        total_datasets = sum(len(value) for value in all_packages_and_datasets.values())
+        _logger.info(f"Total Datasets for Organization: {total_datasets}")
         return all_packages_and_datasets
 
-    def get_info_for_package_id(self, package_id: str):
+    def get_info_for_package_id(self, package_id: str) -> dict | None:
         """Retrieves information for a given package ID.
 
         Args:
@@ -339,7 +346,7 @@ class DataGovUk:
             params={"id": package_id},
         )
 
-    def get_resources_for_package_id(self, package_id: str):
+    def get_resources_for_package_id(self, package_id: str) -> dict[str, list[dict]] | None:
         """Retrieves resources associated with a given package ID.
 
         Args:

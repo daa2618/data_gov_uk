@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import pytest
-from data_gov_uk.utils.strings_and_lists import (
-    StringOperations,
-    ListOperations,
-    ConversionError,
-    ClassIntiationError,
-)
 
+from data_gov_uk.utils.strings_and_lists import (
+    ClassIntiationError,
+    ConversionError,
+    ListOperations,
+    StringOperations,
+)
 
 # ── StringOperations ────────────────────────────────────────────────
 

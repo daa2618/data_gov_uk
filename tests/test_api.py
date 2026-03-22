@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock, call
 
 from data_gov_uk.api import DataGovUk
 from data_gov_uk.exceptions import OrganizationNotFound, PackageNotFound
-
 
 # ── Initialization ──────────────────────────────────────────────────
 
@@ -64,9 +64,7 @@ class TestGetResponse:
                 "result": [],
             }
             client._get_response("https://example.com", params={"rows": "10"})
-        MockResp.assert_called_with(
-            "https://example.com", session=client._session, params={"rows": "10"}
-        )
+        MockResp.assert_called_with("https://example.com", session=client._session, params={"rows": "10"})
 
 
 # ── Input validation ────────────────────────────────────────────────
@@ -101,21 +99,21 @@ class TestCachedProperties:
     def test_all_packages_caches(self, client):
         client._all_packages = None
         with patch.object(client, "_get_response", return_value=["pkg-a"]) as mock:
-            _ = client.ALL_PACKAGES
-            _ = client.ALL_PACKAGES
+            _ = client.all_packages
+            _ = client.all_packages
         assert mock.call_count == 1
 
     def test_all_organizations_caches(self, client):
         client._all_organizations = None
         with patch.object(client, "_get_response", return_value=["org-alpha"]) as mock:
-            _ = client.ALL_ORGANIZATIONS
-            _ = client.ALL_ORGANIZATIONS
+            _ = client.all_organizations
+            _ = client.all_organizations
         assert mock.call_count == 1
 
     def test_all_packages_returns_list(self, client):
         client._all_packages = None
         with patch.object(client, "_get_response", return_value=["a", "b"]):
-            result = client.ALL_PACKAGES
+            result = client.all_packages
         assert result == ["a", "b"]
 
 
@@ -220,8 +218,15 @@ class TestFetchPackagesAndDatasets:
         data = client._fetch_packages_and_datasets([sample_package_show_result])
         resource = data["traffic-speed-data"][0]
         expected_keys = {
-            "description", "file_format", "file_id", "mime_type",
-            "name", "package_id", "resource_type", "created_at", "file_url",
+            "description",
+            "file_format",
+            "file_id",
+            "mime_type",
+            "name",
+            "package_id",
+            "resource_type",
+            "created_at",
+            "file_url",
         }
         assert set(resource.keys()) == expected_keys
 

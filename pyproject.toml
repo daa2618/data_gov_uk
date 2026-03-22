@@ -13,6 +13,8 @@ dependencies = [
     "nltk (>=3.9.1,<4.0.0)"
 ]
 
+[project.scripts]
+data-gov-uk = "data_gov_uk.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -21,5 +23,29 @@ build-backend = "poetry.core.masonry.api"
 [dependency-groups]
 dev = [
     "pytest (>=9.0.2,<10.0.0)",
-    "ruff (>=0.15.7,<0.16.0)"
+    "ruff (>=0.15.7,<0.16.0)",
+    "pre-commit (>=4.0.0,<5.0.0)"
 ]
+
+[project.urls]
+Homepage = "https://github.com/anand26dev/data-gov-uk"
+Repository = "https://github.com/anand26dev/data-gov-uk"
+Issues = "https://github.com/anand26dev/data-gov-uk/issues"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "RUF"]
+ignore = [
+    "N818",    # Exception names don't need Error suffix (OrganizationNotFound, PackageNotFound)
+    "RUF012",  # Mutable class attributes are fine for internal constants
+    "RUF003",  # Allow smart quotes in comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["N803", "N806"]  # Allow MockClient-style naming in tests
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
